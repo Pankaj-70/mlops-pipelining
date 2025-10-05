@@ -1,36 +1,26 @@
 import os
-import logging
 import pandas as pd
-from sklearn.preprocessing import LabelEncoder
-from nltk.stem.porter import PorterStemmer
-from nltk.corpus import stopwords
-import string
-import nltk
+import logging
+from sklearn.model_selection import train_test_split
 
-"""Data Preprocessing Script:
-This module performs text cleaning, stemming, label encoding,
-and saves preprocessed data for training and testing.
+"""Data Ingestion Script:
+Loads, preprocesses, splits, and saves data with logging.
 """
-
-# Download required NLTK resources
-nltk.download('punkt_tab')
-nltk.download('stopwords')
 
 # ----------------------- Logging Setup -----------------------
 log_dir = 'logs'
 os.makedirs(log_dir, exist_ok=True)
 
-logger = logging.getLogger("data_preprocessing")
+logger = logging.getLogger("data_ingestion")
 logger.setLevel("DEBUG")
 
 console_handler = logging.StreamHandler()
 console_handler.setLevel("DEBUG")
 
-log_file_path = os.path.join(log_dir, "data_preprocessing.log")
+log_file_path = os.path.join(log_dir, "data_ingestion.log")
 file_handler = logging.FileHandler(log_file_path)
 file_handler.setLevel("DEBUG")
 
-# Log format: timestamp - logger name - log level - message
 formatter = logging.Formatter('%(asctime)s - %(name)s - %(levelname)s - %(message)s')
 console_handler.setFormatter(formatter)
 file_handler.setFormatter(formatter)
@@ -39,82 +29,72 @@ logger.addHandler(console_handler)
 logger.addHandler(file_handler)
 
 
-# ----------------------- Text Transformation -----------------------
-def transform_text(text):
-  """Clean, tokenize, remove stopwords/punctuation, and stem input text."""
-  ps = PorterStemmer()
-  text = text.lower()  # convert to lowercase
-  text = nltk.word_tokenize(text)  # tokenize text
-  text = [word for word in text if word.isalnum()]  # keep alphanumeric words
-  text = [word for word in text if word not in stopwords.words('english') and word not in string.punctuation]
-  text = [ps.stem(word) for word in text]  # stemming
-  return " ".join(text)
-
-
-# ----------------------- Data Preprocessing -----------------------
-def preprocess_text(df, text_column='text', target_column='target'):
-  """Encode target labels, remove duplicates, and clean text column."""
+# ----------------------- Load Data -----------------------
+def load_data(data_url: str) -> pd.DataFrame:
+  """Load CSV data from URL."""
   try:
-    logger.debug("Preprocessing started in preprocessing.py")
+    df = pd.read_csv(data_url)
+    logger.debug(f"Data loaded from {data_url} successfully")
+    return df
 
-    # Encode labels (spam/ham → 1/0)
-    encoder = LabelEncoder()
-    df[target_column] = encoder.fit_transform(df[target_column])
-    logger.debug("Label encoding completed")
+  except pd.errors.ParserError as err:
+    logger.error(f"Failed to parse file at {data_url}\nError: {err}")
+    raise
 
-    # Remove duplicate rows
-    df = df.drop_duplicates(keep='first')
-    logger.debug("Duplicates removed")
+  except Exception as err:
+    logger.error(f"Unexpected error during data loading\nError: {err}")
+    raise
 
-    # Apply text transformation to text column
-    df.loc[:, text_column] = df[text_column].apply(transform_text)
-    logger.debug("Text column transformed successfully")
 
+# ----------------------- Preprocess Data -----------------------
+def preprocess_data(df: pd.DataFrame) -> pd.DataFrame:
+  """Clean and rename columns."""
+  try:
+    df.drop(columns=['Unnamed: 2', 'Unnamed: 3', 'Unnamed: 4'], inplace=True)
+    df.rename(columns={'v1': 'target', 'v2': 'text'}, inplace=True)
+    logger.debug("Data preprocessing completed")
     return df
 
   except KeyError as err:
-    logger.error(f"Missing columns, preprocessing.py error\nError: {err}")
+    logger.error(f"Missing columns during preprocessing\nError: {err}")
     raise
 
   except Exception as err:
-    logger.error(f"Unexpected error during text normalization\nError: {err}")
+    logger.error(f"Unexpected error during preprocessing\nError: {err}")
     raise
 
 
-# ----------------------- Main Function -----------------------
-def main(text_column='text', target_column='target'):
-  """Main function to load, preprocess, and save train/test datasets."""
+# ----------------------- Save Data -----------------------
+def save_data(train_data: pd.DataFrame, test_data: pd.DataFrame, data_path: str) -> None:
+  """Save train/test data to CSV."""
   try:
-    # Load raw training and testing data
-    train_data = pd.read_csv('./data/raw/train.csv')
-    test_data = pd.read_csv('./data/raw/test.csv')
-    logger.debug("Data loaded successfully")
-
-    # Preprocess text columns
-    train_processed_data = preprocess_text(train_data, text_column, target_column)
-    test_processed_data = preprocess_text(test_data, text_column, target_column)
-
-    # Save processed data
-    data_path = os.path.join("./data", "interim")
-    os.makedirs(data_path, exist_ok=True)
-    train_processed_data.to_csv(os.path.join(data_path, "train_preprocessed.csv"), index=False)
-    test_processed_data.to_csv(os.path.join(data_path, "test_preprocessed.csv"), index=False)
-
-    logger.debug(f"Processed data saved to {data_path}")
-
-  except FileNotFoundError as err:
-    logger.error(f"File not found\nError: {err}")
-    raise
-
-  except pd.errors.EmptyDataError as err:
-    logger.error(f"No data in file\nError: {err}")
-    raise
+    raw_data_path = os.path.join(data_path, 'raw')
+    os.makedirs(raw_data_path, exist_ok=True)
+    train_data.to_csv(os.path.join(raw_data_path, "train.csv"), index=False)
+    test_data.to_csv(os.path.join(raw_data_path, "test.csv"), index=False)
+    logger.debug(f"Data saved at {raw_data_path}")
 
   except Exception as err:
-    logger.error(f"Unexpected error during data transformation\nError: {err}")
+    logger.error(f"Unexpected error during saving data\nError: {err}")
     raise
 
 
-# ----------------------- Script Entry Point -----------------------
-if __name__ == "__main__":
+# ----------------------- Main Pipeline -----------------------
+def main() -> None:
+  """Run the data ingestion pipeline."""
+  try:
+    test_size = 0.2
+    data_url = 'https://raw.githubusercontent.com/Pankaj-70/mlops-pipelining/refs/heads/main/experiments/spam.csv'
+    df = load_data(data_url)
+    final_df = preprocess_data(df)
+    train_data, test_data = train_test_split(final_df, test_size=test_size, random_state=2)
+    save_data(train_data, test_data, data_path='./data')
+
+  except Exception as err:
+    logger.error(f"Data ingestion failed\nError: {err}")
+    raise
+
+
+# ----------------------- Script Entry -----------------------
+if __name__ == '__main__':
   main()
