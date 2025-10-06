@@ -1,0 +1,31 @@
+# Add patterns of files dvc should ignore, which could improve
+# the performance. Learn more at
+# https://dvc.org/doc/user-guide/dvcignore
+# Ignore Python virtual environments
+myenv/
+venv/
+ENV/
+env/
+
+# Git metadata
+.git/
+.gitignore
+
+# DVC cache (handled automatically)
+.dvc/cache/
+
+# Logs and temporary files
+*.log
+*.tmp
+*.swp
+*.DS_Store
+
+# IDE / editor folders
+.idea/
+.vscode/
+
+# Notebook checkpoints
+.ipynb_checkpoints/
+
+# Documentation
+README.md
