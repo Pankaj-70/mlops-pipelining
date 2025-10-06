@@ -6,3 +6,4 @@ ipykernel
 wordcloud
 scikit-learn
 dvc
+dvclive

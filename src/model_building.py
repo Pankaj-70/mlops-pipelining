@@ -67,6 +67,8 @@ def load_data(file_path: str) -> pd.DataFrame:
         logger.error('Unexpected error occurred while loading the data: %s', e)
         raise
 
+
+
 def train_model(X_train: np.ndarray, y_train: np.ndarray, params: dict) -> RandomForestClassifier:
     """
     Train the RandomForest model.
@@ -116,6 +118,8 @@ def save_model(model, file_path: str) -> None:
     except Exception as e:
         logger.error('Error occurred while saving the model: %s', e)
         raise
+
+
 
 def main():
     try:
